@@ -65,6 +65,16 @@ libpixman_1_la_LIBADD += libpixman-ssse3.la
 ASM_CFLAGS_ssse3=$(SSSE3_CFLAGS)
 endif
 
+# avx2 code
+if USE_AVX2
+noinst_LTLIBRARIES += libpixman-avx2.la
+libpixman_avx2_la_SOURCES = \
+	pixman-avx2.c
+libpixman_avx2_la_CFLAGS = $(AVX2_CFLAGS)
+libpixman_1_la_LDFLAGS += $(AVX2_LDFLAGS)
+libpixman_1_la_LIBADD += libpixman-avx2.la
+endif
+
 # arm simd code
 if USE_ARM_SIMD
 noinst_LTLIBRARIES += libpixman-arm-simd.la

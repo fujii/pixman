@@ -503,6 +503,50 @@ fi
 AM_CONDITIONAL(USE_SSSE3, test $have_ssse3_intrinsics = yes)
 
 dnl ===========================================================================
+dnl Check for AVX2
+
+if test "x$AVX2_CFLAGS" = "x" ; then
+    AVX2_CFLAGS="-mavx2 -Winline"
+fi
+
+have_avx2_intrinsics=no
+AC_MSG_CHECKING(whether to use AVX2 intrinsics)
+xserver_save_CFLAGS=$CFLAGS
+CFLAGS="$AVX2_CFLAGS $CFLAGS"
+
+AC_COMPILE_IFELSE([AC_LANG_SOURCE([[
+#if defined(__GNUC__) && (__GNUC__ < 4 || (__GNUC__ == 4 && __GNUC_MINOR__ < 7))
+#  error "Need GCC >= 4.7 for AVX2 intrinsics"
+#endif
+#include <immintrin.h>
+int main () {
+    __m256i a = _mm256_setzero_si256 (), b = _mm256_setzero_si256 (), c;
+	c = _mm256_xor_si256 (a, b);
+    return 0;
+}]])], have_avx2_intrinsics=yes)
+CFLAGS=$xserver_save_CFLAGS
+
+AC_ARG_ENABLE(avx2,
+   [AC_HELP_STRING([--disable-avx2],
+                   [disable AVX2 fast paths])],
+   [enable_avx2=$enableval], [enable_avx2=auto])
+
+if test $enable_avx2 = no ; then
+   have_avx2_intrinsics=disabled
+fi
+
+if test $have_avx2_intrinsics = yes ; then
+   AC_DEFINE(USE_AVX2, 1, [use AVX2 compiler intrinsics])
+fi
+
+AC_MSG_RESULT($have_avx2_intrinsics)
+if test $enable_avx2 = yes && test $have_avx2_intrinsics = no ; then
+   AC_MSG_ERROR([AVX2 intrinsics not detected])
+fi
+
+AM_CONDITIONAL(USE_AVX2, test $have_avx2_intrinsics = yes)
+
+dnl ===========================================================================
 dnl Other special flags needed when building code using MMX or SSE instructions
 case $host_os in
    solaris*)
@@ -528,6 +572,9 @@ case $host_os in
       if test "x$SSE2_LDFLAGS" = "x" ; then
 	 SSE2_LDFLAGS="$HWCAP_LDFLAGS"
       fi
+      if test "x$AVX2_LDFLAGS" = "x" ; then
+	 AVX2_LDFLAGS="$HWCAP_LDFLAGS"
+      fi
       ;;
 esac
 
@@ -538,6 +585,8 @@ AC_SUBST(MMX_LDFLAGS)
 AC_SUBST(SSE2_CFLAGS)
 AC_SUBST(SSE2_LDFLAGS)
 AC_SUBST(SSSE3_CFLAGS)
+AC_SUBST(AVX2_CFLAGS)
+AC_SUBST(AVX2_LDFLAGS)
 
 dnl ===========================================================================
 dnl Check for VMX/Altivec

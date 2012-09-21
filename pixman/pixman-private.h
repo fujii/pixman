@@ -630,6 +630,11 @@ pixman_implementation_t *
 _pixman_implementation_create_ssse3 (pixman_implementation_t *fallback);
 #endif
 
+#ifdef USE_AVX2
+pixman_implementation_t *
+_pixman_implementation_create_avx2 (pixman_implementation_t *fallback);
+#endif
+
 #ifdef USE_ARM_SIMD
 pixman_implementation_t *
 _pixman_implementation_create_arm_simd (pixman_implementation_t *fallback);

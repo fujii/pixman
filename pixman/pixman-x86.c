@@ -245,5 +245,10 @@ _pixman_x86_get_implementations (pixman_implementation_t *imp)
 	imp = _pixman_implementation_create_ssse3 (imp);
 #endif
 
+#ifdef USE_SSE2
+    if (!_pixman_disabled ("avx2") /* && have_feature (AVX2_BITS)*/)
+	imp = _pixman_implementation_create_avx2 (imp);
+#endif
+
     return imp;
 }
