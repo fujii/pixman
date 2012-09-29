@@ -34,8 +34,62 @@
 #include "pixman-combine32.h"
 #include "pixman-inlines.h"
 
+static void
+avx2_composite_add_8888_8888 (pixman_implementation_t *imp,
+                              pixman_composite_info_t *info)
+{
+    PIXMAN_COMPOSITE_ARGS (info);
+    uint32_t    *dst_line, *dst;
+    uint32_t    *src_line, *src;
+    int dst_stride, src_stride;
+    int32_t w;
+
+    PIXMAN_IMAGE_GET_LINE (src_image, src_x, src_y, uint32_t, src_stride, src_line, 1);
+    PIXMAN_IMAGE_GET_LINE (dest_image, dest_x, dest_y, uint32_t, dst_stride, dst_line, 1);
+
+    while (height--)
+    {
+	dst = dst_line;
+	dst_line += dst_stride;
+	src = src_line;
+	src_line += src_stride;
+	w = width;
+
+	while (w && (unsigned long)dst & 31)
+	{
+	    *dst = _mm_cvtsi128_si32(_mm_adds_epu8 (_mm_cvtsi32_si128 (*src),
+						    _mm_cvtsi32_si128 (*dst)));
+	    dst++;
+	    src++;
+	    w--;
+	}
+
+	while (w >= 8)
+	{
+	    *(__m256i *)dst = _mm256_adds_epu8 (
+					_mm256_lddqu_si256 ((__m256i *)src),
+					*(__m256i *)dst);
+	    dst += 8;
+	    src += 8;
+	    w -= 8;
+	}
+
+	while (w)
+	{
+	    *dst = _mm_cvtsi128_si32(_mm_adds_epu8 (_mm_cvtsi32_si128 (*src),
+						    _mm_cvtsi32_si128 (*dst)));
+	    dst++;
+	    src++;
+	    w--;
+	}
+    }
+}
+
 static const pixman_fast_path_t avx2_fast_paths[] =
 {
+    PIXMAN_STD_FAST_PATH    (ADD,  a8r8g8b8, null,     a8r8g8b8, avx2_composite_add_8888_8888      ),
+    PIXMAN_STD_FAST_PATH    (ADD,  a8b8g8r8, null,     a8b8g8r8, avx2_composite_add_8888_8888      ),
+
     { PIXMAN_OP_NONE },
 };
 
