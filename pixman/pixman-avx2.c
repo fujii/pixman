@@ -90,14 +90,13 @@ avx2_composite_add_8888_8888 (pixman_implementation_t *imp,
 #define BMSK ((1 << BILINEAR_INTERPOLATION_BITS) - 1)
 
 #define BILINEAR_DECLARE_VARIABLES						\
-    const __m128i xmm_wt = _mm_set_epi16 (wt, wt, wt, wt, wt, wt, wt, wt);	\
-    const __m128i xmm_wb = _mm_set_epi16 (wb, wb, wb, wb, wb, wb, wb, wb);	\
-    const __m128i xmm_xorc7 = _mm_set_epi16 (0, BMSK, 0, BMSK, 0, BMSK, 0, BMSK);\
-    const __m128i xmm_addc7 = _mm_set_epi16 (0, 1, 0, 1, 0, 1, 0, 1);		\
-    const __m128i xmm_ux = _mm_set_epi16 (unit_x, unit_x, unit_x, unit_x,	\
-					  unit_x, unit_x, unit_x, unit_x);	\
+    const __m128i xmm_wt = _mm_set1_epi16 (wt);					\
+    const __m128i xmm_wb = _mm_set1_epi16 (wb);					\
+    const __m128i xmm_xorc7 = _mm_set1_epi32 (BMSK);				\
+    const __m128i xmm_addc7 = _mm_set1_epi32 (1);				\
+    const __m128i xmm_ux = _mm_set1_epi16 (unit_x);				\
     const __m128i xmm_zero = _mm_setzero_si128 ();				\
-    __m128i xmm_x = _mm_set_epi16 (vx, vx, vx, vx, vx, vx, vx, vx)
+    __m128i xmm_x = _mm_set1_epi16 (vx)
 
 #define BILINEAR_INTERPOLATE_ONE_PIXEL(pix)					\
 do {										\
