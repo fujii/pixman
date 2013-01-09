@@ -90,12 +90,11 @@ avx2_composite_add_8888_8888 (pixman_implementation_t *imp,
 #define BMSK ((1 << BILINEAR_INTERPOLATION_BITS) - 1)
 
 #define BILINEAR_DECLARE_VARIABLES						\
-    const __m128i xmm_wt = _mm_set1_epi16 (wt);					\
-    const __m128i xmm_wb = _mm_set1_epi16 (wb);					\
+    const __m128i xmm_wtb = _mm_set_epi8 (wt, wb, wt, wb, wt, wb, wt, wb,	\
+					  wt, wb, wt, wb, wt, wb, wt, wb);	\
     const __m128i xmm_xorc7 = _mm_set1_epi32 (BMSK);				\
     const __m128i xmm_addc7 = _mm_set1_epi32 (1);				\
     const __m128i xmm_ux = _mm_set1_epi16 (unit_x);				\
-    const __m128i xmm_zero = _mm_setzero_si128 ();				\
     __m128i xmm_x = _mm_set1_epi16 (vx)
 
 #define BILINEAR_INTERPOLATE_ONE_PIXEL(pix)					\
@@ -108,10 +107,7 @@ do {										\
 			    (__m128i *)&src_bottom[pixman_fixed_to_int (vx)]);	\
     vx += unit_x;								\
     /* vertical interpolation */						\
-    a = _mm_add_epi16 (_mm_mullo_epi16 (_mm_unpacklo_epi8 (tltr, xmm_zero),	\
-					xmm_wt),				\
-		       _mm_mullo_epi16 (_mm_unpacklo_epi8 (blbr, xmm_zero),	\
-					xmm_wb));				\
+    a = _mm_maddubs_epi16 (_mm_unpacklo_epi8 (blbr, tltr), xmm_wtb);		\
     /* calculate horizontal weights */						\
     xmm_wh = _mm_add_epi16 (xmm_addc7, _mm_xor_si128 (xmm_xorc7,		\
     _mm_srli_epi16 (xmm_x, 16 - BILINEAR_INTERPOLATION_BITS)));			\
