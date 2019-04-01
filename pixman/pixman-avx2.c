@@ -85,11 +85,24 @@ avx2_composite_add_8888_8888 (pixman_implementation_t *imp,
     }
 }
 
+#define eqmask(a, b) (_mm_movemask_epi8(_mm_cmpeq_epi32(a, b)) == 0xffff)
+
 #if BILINEAR_INTERPOLATION_BITS < 8
 
 #define BMSK ((1 << BILINEAR_INTERPOLATION_BITS) - 1)
 
-#define BILINEAR_DECLARE_VARIABLES						\
+#define BILINEAR_DECLARE_YMM_VARIABLES						\
+    const __m256i ymm_wtb = _mm256_set_epi8 (wt, wb, wt, wb, wt, wb, wt, wb,	\
+					     wt, wb, wt, wb, wt, wb, wt, wb,	\
+					     wt, wb, wt, wb, wt, wb, wt, wb,	\
+					     wt, wb, wt, wb, wt, wb, wt, wb);	\
+    const __m256i ymm_xorc7 = _mm256_set1_epi32 (BMSK);				\
+    const __m256i ymm_addc7 = _mm256_set1_epi32 (1);				\
+    const __m256i ymm_ux = _mm256_set1_epi16 (2 * unit_x);			\
+    __m256i ymm_x = _mm256_set_m128i (_mm_set1_epi16 (vx + unit_x),		\
+                                      _mm_set1_epi16 (vx))
+
+#define BILINEAR_DECLARE_XMM_VARIABLES						\
     const __m128i xmm_wtb = _mm_set_epi8 (wt, wb, wt, wb, wt, wb, wt, wb,	\
 					  wt, wb, wt, wb, wt, wb, wt, wb);	\
     const __m128i xmm_xorc7 = _mm_set1_epi32 (BMSK);				\
@@ -122,11 +135,35 @@ do {										\
     pix = _mm_cvtsi128_si32 (a);						\
 } while (0)
 
-#define BILINEAR_SKIP_ONE_PIXEL()						\
+#define BILINEAR_INTERPOLATE_TWO_PIXELS(pix1, pix2)				\
 do {										\
+    __m256i ymm_wh, a;								\
+    /* fetch two 2x2 pixel blocks into avx2 registers */			\
+    __m256i mask = _mm256_set_epi64x (0, 1ULL << 63, 0, 1ULL << 63);		\
+    __m128i vindex = _mm_set_epi32 (0,						\
+    				    pixman_fixed_to_int (vx + unit_x),		\
+				    0,						\
+                                    pixman_fixed_to_int (vx));			\
+    __m256i tltr =  _mm256_mask_i32gather_epi64 (_mm256_undefined_si256 (), (const long long *)src_top, vindex, mask, 4);		\
+    __m256i blbr =  _mm256_mask_i32gather_epi64 (_mm256_undefined_si256 (), (const long long *)src_bottom, vindex, mask, 4);		\
     vx += unit_x;								\
-    xmm_x = _mm_add_epi16 (xmm_x, xmm_ux);					\
-} while(0)
+    vx += unit_x;								\
+    /* vertical interpolation */						\
+    a = _mm256_maddubs_epi16 (_mm256_unpacklo_epi8 (blbr, tltr), ymm_wtb);	\
+    /* calculate horizontal weights */						\
+    ymm_wh = _mm256_add_epi16 (ymm_addc7, _mm256_xor_si256 (ymm_xorc7,		\
+		_mm256_srli_epi16 (ymm_x, 16 - BILINEAR_INTERPOLATION_BITS)));	\
+    ymm_x = _mm256_add_epi16 (ymm_x, ymm_ux);					\
+    /* horizontal interpolation */						\
+    a = _mm256_madd_epi16 (_mm256_unpackhi_epi16 (_mm256_shuffle_epi32 (	\
+	    a, _MM_SHUFFLE (1, 0, 3, 2)), a), ymm_wh);				\
+    /* shift and pack the result */						\
+    a = _mm256_srli_epi32 (a, BILINEAR_INTERPOLATION_BITS * 2);			\
+    a = _mm256_packs_epi32 (a, a);						\
+    a = _mm256_packus_epi16 (a, a);						\
+    pix1 = _mm256_extract_epi32(a, 0);						\
+    pix2 = _mm256_extract_epi32(a, 4);						\
+} while (0)
 
 static force_inline void
 scaled_bilinear_scanline_avx2_8888_8888_SRC (uint32_t *       dst,
@@ -141,35 +178,22 @@ scaled_bilinear_scanline_avx2_8888_8888_SRC (uint32_t *       dst,
 					     pixman_fixed_t   max_vx,
 					     pixman_bool_t    zero_src)
 {
-    BILINEAR_DECLARE_VARIABLES;
-    uint32_t pix1, pix2, pix3, pix4;
+    uint32_t pix1, pix2;
 
-    while ((w -= 4) >= 0)
+    while ((w -= 2) >= 0)
     {
-	BILINEAR_INTERPOLATE_ONE_PIXEL (pix1);
-	BILINEAR_INTERPOLATE_ONE_PIXEL (pix2);
-	BILINEAR_INTERPOLATE_ONE_PIXEL (pix3);
-	BILINEAR_INTERPOLATE_ONE_PIXEL (pix4);
-	*dst++ = pix1;
-	*dst++ = pix2;
-	*dst++ = pix3;
-	*dst++ = pix4;
-    }
-
-    if (w & 2)
-    {
-	BILINEAR_INTERPOLATE_ONE_PIXEL (pix1);
-	BILINEAR_INTERPOLATE_ONE_PIXEL (pix2);
+	BILINEAR_DECLARE_YMM_VARIABLES;
+	BILINEAR_INTERPOLATE_TWO_PIXELS (pix1, pix2);
 	*dst++ = pix1;
 	*dst++ = pix2;
     }
 
     if (w & 1)
     {
+	BILINEAR_DECLARE_XMM_VARIABLES;
 	BILINEAR_INTERPOLATE_ONE_PIXEL (pix1);
 	*dst = pix1;
     }
-
 }
 
 FAST_BILINEAR_MAINLOOP_COMMON (avx2_8888_8888_cover_SRC,
