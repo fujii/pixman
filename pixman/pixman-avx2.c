@@ -139,15 +139,14 @@ do {										\
 do {										\
     __m256i ymm_wh, a;								\
     /* fetch two 2x2 pixel blocks into avx2 registers */			\
-    __m256i mask = _mm256_set_epi64x (0, 1ULL << 63, 0, 1ULL << 63);		\
-    __m128i vindex = _mm_set_epi32 (0,						\
-    				    pixman_fixed_to_int (vx + unit_x),		\
-				    0,						\
-                                    pixman_fixed_to_int (vx));			\
-    __m256i tltr =  _mm256_mask_i32gather_epi64 (_mm256_undefined_si256 (), (const long long *)src_top, vindex, mask, 4);		\
-    __m256i blbr =  _mm256_mask_i32gather_epi64 (_mm256_undefined_si256 (), (const long long *)src_bottom, vindex, mask, 4);		\
-    vx += unit_x;								\
-    vx += unit_x;								\
+    __m256i vindex = _mm256_set_epi64x (&src_bottom[pixman_fixed_to_int (vx + unit_x)],	\
+					&src_top   [pixman_fixed_to_int (vx + unit_x)],	\
+					&src_bottom[pixman_fixed_to_int (vx)],		\
+					&src_top   [pixman_fixed_to_int (vx)]);		\
+    __m256i load =  _mm256_i64gather_epi64 (NULL, vindex, 1);			\
+    __m256i tltr =  load;							\
+    __m256i blbr =  _mm256_permute4x64_epi64 (load, _MM_SHUFFLE (3, 3, 1, 1));	\
+    vx += 2 * unit_x;								\
     /* vertical interpolation */						\
     a = _mm256_maddubs_epi16 (_mm256_unpacklo_epi8 (blbr, tltr), ymm_wtb);	\
     /* calculate horizontal weights */						\
@@ -161,8 +160,7 @@ do {										\
     a = _mm256_srli_epi32 (a, BILINEAR_INTERPOLATION_BITS * 2);			\
     a = _mm256_packs_epi32 (a, a);						\
     a = _mm256_packus_epi16 (a, a);						\
-    pix1 = _mm256_extract_epi32(a, 0);						\
-    pix2 = _mm256_extract_epi32(a, 4);						\
+    *(uint64_t *)dst = _mm256_extract_epi64(_mm256_permutevar8x32_epi32(a, _mm256_set_epi32(0,0,0,0,0,0,4,0)), 0); \
 } while (0)
 
 static force_inline void
@@ -178,14 +176,13 @@ scaled_bilinear_scanline_avx2_8888_8888_SRC (uint32_t *       dst,
 					     pixman_fixed_t   max_vx,
 					     pixman_bool_t    zero_src)
 {
+    BILINEAR_DECLARE_YMM_VARIABLES;
     uint32_t pix1, pix2;
 
     while ((w -= 2) >= 0)
     {
-	BILINEAR_DECLARE_YMM_VARIABLES;
 	BILINEAR_INTERPOLATE_TWO_PIXELS (pix1, pix2);
-	*dst++ = pix1;
-	*dst++ = pix2;
+	dst += 2;
     }
 
     if (w & 1)
