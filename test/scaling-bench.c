@@ -19,16 +19,91 @@ make_source (void)
 	data,
 	(SOURCE_WIDTH + 2) * 4);
 
-    pixman_image_set_filter (source, PIXMAN_FILTER_BILINEAR, NULL, 0);
-
     return source;
 }
 
+static void
+set_filter (pixman_image_t	*source,
+	    double		scale,
+	    pixman_filter_t	filter)
+{
+    pixman_fixed_t *params = NULL;
+    int n_params = 0;
+
+    switch (filter) {
+    case PIXMAN_FILTER_SEPARABLE_CONVOLUTION:
+	params = pixman_filter_create_separable_convolution (
+            &n_params,
+            pixman_double_to_fixed(scale),
+            pixman_double_to_fixed(scale),
+            PIXMAN_KERNEL_BOX,
+            PIXMAN_KERNEL_BOX,
+            PIXMAN_KERNEL_BOX,
+            PIXMAN_KERNEL_BOX,
+            4, 4);
+	break;
+    }
+
+    pixman_image_set_filter (source, filter, params, n_params);
+
+    if (params)
+	free (params);
+}
+
+void
+print_help ()
+{
+    printf ("Options:\n\n"
+	    "--filter {n|b|s}   filter\n"
+	    "--start <double>   start scale factor\n"
+	    "--end <double>     end scale factor\n");
+    exit (-1);
+}
+
+static void
+parse_arguments (int		argc,
+		 char		**argv,
+		 double		*start_scale,
+		 double		*end_scale,
+		 pixman_filter_t	*filter)
+{
+    while (*++argv) {
+	if (!strcmp (*argv, "--filter")) {
+	    ++argv;
+	    if (!strcmp (*argv, "n"))
+		*filter = PIXMAN_FILTER_NEAREST;
+	    else if (!strcmp (*argv, "b"))
+		*filter = PIXMAN_FILTER_BILINEAR;
+	    else if (!strcmp (*argv, "s"))
+		*filter = PIXMAN_FILTER_SEPARABLE_CONVOLUTION;
+	    else {
+		printf ("Unknown filter '%s'\n\n", *argv);
+		print_help ();
+	    }
+	} else if (!strcmp (*argv, "--start")) {
+	    ++argv;
+	    *start_scale = strtod (*argv, NULL);
+	} else if (!strcmp (*argv, "--end")) {
+	    ++argv;
+	    *end_scale = strtod (*argv, NULL);
+	} else if (!strcmp (*argv, "-h") || !strcmp (*argv, "--help")) {
+	    print_help ();
+	} else {
+	    printf ("Unknown option '%s'\n\n", *argv);
+	    print_help ();
+	}
+    }
+}
+
 int
-main ()
+main (int argc, char **argv)
 {
     double scale;
+    double start_scale = 0.1, end_scale = 10.005;
     pixman_image_t *src;
+    pixman_filter_t filter = PIXMAN_FILTER_BILINEAR;
+
+    parse_arguments (argc, argv, &start_scale, &end_scale, &filter);
 
     prng_srand (23874);
     
@@ -36,9 +111,9 @@ main ()
     printf ("# %-6s %-22s   %-14s %-12s\n",
 	    "ratio",
 	    "resolutions",
-	    "time / ms",
-	    "time per pixel / ns");
-    for (scale = 0.1; scale < 10.005; scale += 0.01)
+	    "time [ms]",
+	    "time per pixel [ns]");
+    for (scale = start_scale; scale < end_scale; scale += 0.01)
     {
 	int i;
 	int dest_width = SOURCE_WIDTH * scale + 0.5;
@@ -50,6 +125,8 @@ main ()
 	double t1, t2, t = -1;
 	uint32_t *dest_buf = aligned_malloc (16, dest_byte_stride * dest_height);
 	memset (dest_buf, 0, dest_byte_stride * dest_height);
+
+	set_filter (src, 0.4, filter);
 
 	pixman_transform_init_scale (&transform, s, s);
 	pixman_image_set_transform (src, &transform);
