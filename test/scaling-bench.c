@@ -56,15 +56,17 @@ print_help ()
     printf ("Options:\n\n"
 	    "--filter {n|b|s}   filter\n"
 	    "--start <double>   start scale factor\n"
-	    "--end <double>     end scale factor\n");
+	    "--end <double>     end scale factor\n"
+	    "--step <double>    scale step\n");
     exit (-1);
 }
 
 static void
-parse_arguments (int		argc,
-		 char		**argv,
-		 double		*start_scale,
-		 double		*end_scale,
+parse_arguments (int			argc,
+		 char			**argv,
+		 double			*start_scale,
+		 double			*end_scale,
+		 double			*scale_step,
 		 pixman_filter_t	*filter)
 {
     while (*++argv) {
@@ -86,6 +88,9 @@ parse_arguments (int		argc,
 	} else if (!strcmp (*argv, "--end")) {
 	    ++argv;
 	    *end_scale = strtod (*argv, NULL);
+	} else if (!strcmp (*argv, "--step")) {
+	    ++argv;
+	    *scale_step = strtod (*argv, NULL);
 	} else if (!strcmp (*argv, "-h") || !strcmp (*argv, "--help")) {
 	    print_help ();
 	} else {
@@ -99,11 +104,11 @@ int
 main (int argc, char **argv)
 {
     double scale;
-    double start_scale = 0.1, end_scale = 10.005;
+    double start_scale = 0.1, end_scale = 10.005, scale_step = 0.01;
     pixman_image_t *src;
     pixman_filter_t filter = PIXMAN_FILTER_BILINEAR;
 
-    parse_arguments (argc, argv, &start_scale, &end_scale, &filter);
+    parse_arguments (argc, argv, &start_scale, &end_scale, &scale_step, &filter);
 
     prng_srand (23874);
     
@@ -113,7 +118,7 @@ main (int argc, char **argv)
 	    "resolutions",
 	    "time [ms]",
 	    "time per pixel [ns]");
-    for (scale = start_scale; scale < end_scale; scale += 0.01)
+    for (scale = start_scale; scale < end_scale; scale += scale_step)
     {
 	int i;
 	int dest_width = SOURCE_WIDTH * scale + 0.5;
@@ -126,7 +131,7 @@ main (int argc, char **argv)
 	uint32_t *dest_buf = aligned_malloc (16, dest_byte_stride * dest_height);
 	memset (dest_buf, 0, dest_byte_stride * dest_height);
 
-	set_filter (src, 0.4, filter);
+	set_filter (src, scale, filter);
 
 	pixman_transform_init_scale (&transform, s, s);
 	pixman_image_set_transform (src, &transform);
