@@ -30,6 +30,10 @@ set_filter (pixman_image_t	*source,
     pixman_fixed_t *params = NULL;
     int n_params = 0;
 
+    scale = 1 / scale;
+    if (scale > 16)
+	scale = 16;
+
     switch (filter) {
     case PIXMAN_FILTER_SEPARABLE_CONVOLUTION:
 	params = pixman_filter_create_separable_convolution (
@@ -45,6 +49,17 @@ set_filter (pixman_image_t	*source,
     }
 
     pixman_image_set_filter (source, filter, params, n_params);
+#if 0
+    printf ("n_params: %d %dx%d %dx%d\n", n_params, pixman_fixed_to_int(params[0]), pixman_fixed_to_int(params[1]), pixman_fixed_to_int(params[2]), pixman_fixed_to_int(params[3]));
+
+    int width = pixman_fixed_to_int(params[0]);
+    int height = pixman_fixed_to_int(params[1]);
+    for (int y=0; y < height; y++) {
+	for (int x=0; x < width; x++)
+	    printf (" %f", pixman_fixed_to_double(params[4+y*width+x]));
+	printf ("\n");
+    }
+#endif		 
 
     if (params)
 	free (params);
