@@ -1362,4 +1362,158 @@ fast_composite_scaled_bilinear ## scale_func_name (pixman_implementation_t *imp,
     SIMPLE_BILINEAR_SOLID_MASK_FAST_PATH_PAD (op,s,d,func),		\
     SIMPLE_BILINEAR_SOLID_MASK_FAST_PATH_NORMAL (op,s,d,func)
 
+
+/*  */
+#define SCALED_SEPARABLE_CONVOLUTION_FLAGS						\
+    (FAST_PATH_SCALE_TRANSFORM	|					\
+     FAST_PATH_NO_ALPHA_MAP	|					\
+     FAST_PATH_SEPARABLE_CONVOLUTION_FILTER	|					\
+     FAST_PATH_NO_ACCESSORS	|					\
+     FAST_PATH_NARROW_FORMAT)
+
+#define SIMPLE_SEPARABLE_CONVOLUTION_FAST_PATH_NORMAL(op,s,d,func)			\
+    {   PIXMAN_OP_ ## op,						\
+	PIXMAN_ ## s,							\
+	(SCALED_SEPARABLE_CONVOLUTION_FLAGS		|				\
+	 FAST_PATH_NORMAL_REPEAT	|				\
+	 FAST_PATH_X_UNIT_POSITIVE),					\
+	PIXMAN_null, 0,							\
+	PIXMAN_ ## d, FAST_PATH_STD_DEST_FLAGS,				\
+	fast_composite_scaled_nearest_ ## func ## _normal ## _ ## op,	\
+    }
+
+#define SIMPLE_SEPARABLE_CONVOLUTION_FAST_PATH_PAD(op,s,d,func)			\
+    {   PIXMAN_OP_ ## op,						\
+	PIXMAN_ ## s,							\
+	(SCALED_SEPARABLE_CONVOLUTION_FLAGS		|				\
+	 FAST_PATH_PAD_REPEAT		|				\
+	 FAST_PATH_X_UNIT_POSITIVE),					\
+	PIXMAN_null, 0,							\
+	PIXMAN_ ## d, FAST_PATH_STD_DEST_FLAGS,				\
+	fast_composite_scaled_nearest_ ## func ## _pad ## _ ## op,	\
+    }
+
+#define SIMPLE_SEPARABLE_CONVOLUTION_FAST_PATH_NONE(op,s,d,func)			\
+    {   PIXMAN_OP_ ## op,						\
+	PIXMAN_ ## s,							\
+	(SCALED_SEPARABLE_CONVOLUTION_FLAGS		|				\
+	 FAST_PATH_NONE_REPEAT		|				\
+	 FAST_PATH_X_UNIT_POSITIVE),					\
+	PIXMAN_null, 0,							\
+	PIXMAN_ ## d, FAST_PATH_STD_DEST_FLAGS,				\
+	fast_composite_scaled_nearest_ ## func ## _none ## _ ## op,	\
+    }
+
+#define SIMPLE_SEPARABLE_CONVOLUTION_FAST_PATH_COVER(op,s,d,func)			\
+    {   PIXMAN_OP_ ## op,						\
+	PIXMAN_ ## s,							\
+	SCALED_SEPARABLE_CONVOLUTION_FLAGS | FAST_PATH_SAMPLES_COVER_CLIP_NEAREST,    \
+	PIXMAN_null, 0,							\
+	PIXMAN_ ## d, FAST_PATH_STD_DEST_FLAGS,				\
+	fast_composite_scaled_nearest_ ## func ## _cover ## _ ## op,	\
+    }
+
+#define SIMPLE_SEPARABLE_CONVOLUTION_A8_MASK_FAST_PATH_NORMAL(op,s,d,func)		\
+    {   PIXMAN_OP_ ## op,						\
+	PIXMAN_ ## s,							\
+	(SCALED_SEPARABLE_CONVOLUTION_FLAGS		|				\
+	 FAST_PATH_NORMAL_REPEAT	|				\
+	 FAST_PATH_X_UNIT_POSITIVE),					\
+	PIXMAN_a8, MASK_FLAGS (a8, FAST_PATH_UNIFIED_ALPHA),		\
+	PIXMAN_ ## d, FAST_PATH_STD_DEST_FLAGS,				\
+	fast_composite_scaled_nearest_ ## func ## _normal ## _ ## op,	\
+    }
+
+#define SIMPLE_SEPARABLE_CONVOLUTION_A8_MASK_FAST_PATH_PAD(op,s,d,func)		\
+    {   PIXMAN_OP_ ## op,						\
+	PIXMAN_ ## s,							\
+	(SCALED_SEPARABLE_CONVOLUTION_FLAGS		|				\
+	 FAST_PATH_PAD_REPEAT		|				\
+	 FAST_PATH_X_UNIT_POSITIVE),					\
+	PIXMAN_a8, MASK_FLAGS (a8, FAST_PATH_UNIFIED_ALPHA),		\
+	PIXMAN_ ## d, FAST_PATH_STD_DEST_FLAGS,				\
+	fast_composite_scaled_nearest_ ## func ## _pad ## _ ## op,	\
+    }
+
+#define SIMPLE_SEPARABLE_CONVOLUTION_A8_MASK_FAST_PATH_NONE(op,s,d,func)		\
+    {   PIXMAN_OP_ ## op,						\
+	PIXMAN_ ## s,							\
+	(SCALED_SEPARABLE_CONVOLUTION_FLAGS		|				\
+	 FAST_PATH_NONE_REPEAT		|				\
+	 FAST_PATH_X_UNIT_POSITIVE),					\
+	PIXMAN_a8, MASK_FLAGS (a8, FAST_PATH_UNIFIED_ALPHA),		\
+	PIXMAN_ ## d, FAST_PATH_STD_DEST_FLAGS,				\
+	fast_composite_scaled_nearest_ ## func ## _none ## _ ## op,	\
+    }
+
+#define SIMPLE_SEPARABLE_CONVOLUTION_A8_MASK_FAST_PATH_COVER(op,s,d,func)		\
+    {   PIXMAN_OP_ ## op,						\
+	PIXMAN_ ## s,							\
+	SCALED_SEPARABLE_CONVOLUTION_FLAGS | FAST_PATH_SAMPLES_COVER_CLIP_NEAREST,	\
+	PIXMAN_a8, MASK_FLAGS (a8, FAST_PATH_UNIFIED_ALPHA),		\
+	PIXMAN_ ## d, FAST_PATH_STD_DEST_FLAGS,				\
+	fast_composite_scaled_nearest_ ## func ## _cover ## _ ## op,	\
+    }
+
+#define SIMPLE_SEPARABLE_CONVOLUTION_SOLID_MASK_FAST_PATH_NORMAL(op,s,d,func)		\
+    {   PIXMAN_OP_ ## op,						\
+	PIXMAN_ ## s,							\
+	(SCALED_SEPARABLE_CONVOLUTION_FLAGS		|				\
+	 FAST_PATH_NORMAL_REPEAT	|				\
+	 FAST_PATH_X_UNIT_POSITIVE),					\
+	PIXMAN_solid, MASK_FLAGS (solid, FAST_PATH_UNIFIED_ALPHA),	\
+	PIXMAN_ ## d, FAST_PATH_STD_DEST_FLAGS,				\
+	fast_composite_scaled_nearest_ ## func ## _normal ## _ ## op,	\
+    }
+
+#define SIMPLE_SEPARABLE_CONVOLUTION_SOLID_MASK_FAST_PATH_PAD(op,s,d,func)		\
+    {   PIXMAN_OP_ ## op,						\
+	PIXMAN_ ## s,							\
+	(SCALED_SEPARABLE_CONVOLUTION_FLAGS		|				\
+	 FAST_PATH_PAD_REPEAT		|				\
+	 FAST_PATH_X_UNIT_POSITIVE),					\
+	PIXMAN_solid, MASK_FLAGS (solid, FAST_PATH_UNIFIED_ALPHA),	\
+	PIXMAN_ ## d, FAST_PATH_STD_DEST_FLAGS,				\
+	fast_composite_scaled_nearest_ ## func ## _pad ## _ ## op,	\
+    }
+
+#define SIMPLE_SEPARABLE_CONVOLUTION_SOLID_MASK_FAST_PATH_NONE(op,s,d,func)		\
+    {   PIXMAN_OP_ ## op,						\
+	PIXMAN_ ## s,							\
+	(SCALED_SEPARABLE_CONVOLUTION_FLAGS		|				\
+	 FAST_PATH_NONE_REPEAT		|				\
+	 FAST_PATH_X_UNIT_POSITIVE),					\
+	PIXMAN_solid, MASK_FLAGS (solid, FAST_PATH_UNIFIED_ALPHA),	\
+	PIXMAN_ ## d, FAST_PATH_STD_DEST_FLAGS,				\
+	fast_composite_scaled_nearest_ ## func ## _none ## _ ## op,	\
+    }
+
+#define SIMPLE_SEPARABLE_CONVOLUTION_SOLID_MASK_FAST_PATH_COVER(op,s,d,func)		\
+    {   PIXMAN_OP_ ## op,						\
+	PIXMAN_ ## s,							\
+	SCALED_SEPARABLE_CONVOLUTION_FLAGS | FAST_PATH_SAMPLES_COVER_CLIP_NEAREST,	\
+	PIXMAN_solid, MASK_FLAGS (solid, FAST_PATH_UNIFIED_ALPHA),	\
+	PIXMAN_ ## d, FAST_PATH_STD_DEST_FLAGS,				\
+	fast_composite_scaled_nearest_ ## func ## _cover ## _ ## op,	\
+    }
+
+/* Prefer the use of 'cover' variant, because it is faster */
+#define SIMPLE_SEPARABLE_CONVOLUTION_FAST_PATH(op,s,d,func)				\
+    SIMPLE_SEPARABLE_CONVOLUTION_FAST_PATH_COVER (op,s,d,func),			\
+    SIMPLE_SEPARABLE_CONVOLUTION_FAST_PATH_NONE (op,s,d,func),			\
+    SIMPLE_SEPARABLE_CONVOLUTION_FAST_PATH_PAD (op,s,d,func),				\
+    SIMPLE_SEPARABLE_CONVOLUTION_FAST_PATH_NORMAL (op,s,d,func)
+
+#define SIMPLE_SEPARABLE_CONVOLUTION_A8_MASK_FAST_PATH(op,s,d,func)			\
+    SIMPLE_SEPARABLE_CONVOLUTION_A8_MASK_FAST_PATH_COVER (op,s,d,func),		\
+    SIMPLE_SEPARABLE_CONVOLUTION_A8_MASK_FAST_PATH_NONE (op,s,d,func),		\
+    SIMPLE_SEPARABLE_CONVOLUTION_A8_MASK_FAST_PATH_PAD (op,s,d,func)
+
+#define SIMPLE_SEPARABLE_CONVOLUTION_SOLID_MASK_FAST_PATH(op,s,d,func)		\
+    SIMPLE_SEPARABLE_CONVOLUTION_SOLID_MASK_FAST_PATH_COVER (op,s,d,func),		\
+    SIMPLE_SEPARABLE_CONVOLUTION_SOLID_MASK_FAST_PATH_NONE (op,s,d,func),		\
+    SIMPLE_SEPARABLE_CONVOLUTION_SOLID_MASK_FAST_PATH_PAD (op,s,d,func),              \
+    SIMPLE_SEPARABLE_CONVOLUTION_SOLID_MASK_FAST_PATH_NORMAL (op,s,d,func)
+
+
 #endif
