@@ -32,6 +32,9 @@
 #include "pixman-combine32.h"
 #include "pixman-inlines.h"
 
+#include <emmintrin.h> /* for SSE2 intrinsics */
+#include <immintrin.h>
+
 static force_inline uint32_t
 fetch_24 (uint8_t *a)
 {
@@ -2744,7 +2747,7 @@ bits_image_fetch_separable_convolution_affine (pixman_image_t * image,
     for (k = 0; k < width; ++k)
     {
 	pixman_fixed_t *y_params;
-	int satot, srtot, sgtot, sbtot;
+	__m128i tot;
 	pixman_fixed_t x, y;
 	int32_t x1, x2, y1, y2;
 	int32_t px, py;
@@ -2769,7 +2772,7 @@ bits_image_fetch_separable_convolution_affine (pixman_image_t * image,
 	x2 = x1 + cwidth;
 	y2 = y1 + cheight;
 
-	satot = srtot = sgtot = sbtot = 0;
+	tot = _mm_setzero_si128 ();
 
 	y_params = params + 4 + (1 << x_phase_bits) * cwidth + py * cheight;
 
@@ -2792,6 +2795,7 @@ bits_image_fetch_separable_convolution_affine (pixman_image_t * image,
 			pixman_fixed_t f;
 			uint32_t pixel, mask;
 			uint8_t *row;
+			__m128i pixel_unpack;
 
 			mask = PIXMAN_FORMAT_A (format)? 0 : 0xff000000;
 
@@ -2817,26 +2821,19 @@ bits_image_fetch_separable_convolution_affine (pixman_image_t * image,
 			}
 
 			f = ((pixman_fixed_32_32_t)fx * fy + 0x8000) >> 16;
-			srtot += (int)RED_8 (pixel) * f;
-			sgtot += (int)GREEN_8 (pixel) * f;
-			sbtot += (int)BLUE_8 (pixel) * f;
-			satot += (int)ALPHA_8 (pixel) * f;
+			pixel_unpack = _mm_unpacklo_epi8 (_mm_cvtsi32_si128 (pixel), _mm_setzero_si128 ());
+			pixel_unpack = _mm_unpacklo_epi8 (pixel_unpack, _mm_setzero_si128 ());
+			pixel_unpack *= f;
+			tot += pixel_unpack;
 		    }
 		}
 	    }
 	}
-
-	satot = (satot + 0x8000) >> 16;
-	srtot = (srtot + 0x8000) >> 16;
-	sgtot = (sgtot + 0x8000) >> 16;
-	sbtot = (sbtot + 0x8000) >> 16;
-
-	satot = CLIP (satot, 0, 0xff);
-	srtot = CLIP (srtot, 0, 0xff);
-	sgtot = CLIP (sgtot, 0, 0xff);
-	sbtot = CLIP (sbtot, 0, 0xff);
-
-	buffer[k] = (satot << 24) | (srtot << 16) | (sgtot << 8) | (sbtot << 0);
+	tot += _mm_set1_epi32 (0x8000);
+	tot = _mm_srl_epi32 (tot, _mm_cvtsi32_si128 (16));
+	tot = _mm_packus_epi16 (tot, _mm_setzero_si128 ());
+	tot = _mm_packus_epi16 (tot, _mm_setzero_si128 ());
+	_mm_store_ss ((float*)&buffer[k], _mm_castsi128_ps(tot));
 
     next:
 	vx += ux;
