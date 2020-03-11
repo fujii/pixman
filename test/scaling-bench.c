@@ -8,6 +8,7 @@ double start_scale = 0.1;
 double end_scale = 10.005;
 double scale_step = 0.01;
 pixman_filter_t filter = PIXMAN_FILTER_BILINEAR;
+pixman_op_t op = PIXMAN_OP_OVER;
 
 static pixman_image_t *
 make_source (void)
@@ -75,10 +76,14 @@ void
 print_help ()
 {
     printf ("Options:\n\n"
-	    "--filter {n|b|s}   filter\n"
-	    "--start <double>   start scale factor\n"
-	    "--end <double>     end scale factor\n"
-	    "--step <double>    scale step\n");
+	    "  --filter {n|b|s}        filter\n"
+	    "  --start <double>        start scale factor\n"
+	    "  --end <double>          end scale factor\n"
+	    "  --step <double>         scale step\n"
+	    "  --source-width <int>    source width\n"
+	    "  --source-height <int>   source height\n"
+	    "  --test-repeats <int>    repeat count\n"
+	    "  --op <int>              compositing operator\n");
     exit (-1);
 }
 
@@ -117,6 +122,9 @@ parse_arguments (int			argc,
 	} else if (!strcmp (*argv, "--test-repeats")) {
 	    ++argv;
 	    test_repeats = atoi (*argv);
+	} else if (!strcmp (*argv, "--op")) {
+	    ++argv;
+	    op = atoi (*argv);
 	} else if (!strcmp (*argv, "-h") || !strcmp (*argv, "--help")) {
 	    print_help ();
 	} else {
@@ -167,7 +175,7 @@ main (int argc, char **argv)
 	{
 	    t1 = gettime();
 	    pixman_image_composite (
-		PIXMAN_OP_OVER, src, NULL, dest,
+		op, src, NULL, dest,
 		scale, scale, 0, 0, 0, 0, dest_width, dest_height);
 	    t2 = gettime();
 	    if (t < 0 || t2 - t1 < t)
