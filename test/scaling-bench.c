@@ -1,23 +1,27 @@
 #include <stdlib.h>
 #include "utils.h"
 
-#define SOURCE_WIDTH 320
-#define SOURCE_HEIGHT 240
-#define TEST_REPEATS 3
+int source_width = 320;
+int source_height = 240;
+int test_repeats = 3;
+double start_scale = 0.1;
+double end_scale = 10.005;
+double scale_step = 0.01;
+pixman_filter_t filter = PIXMAN_FILTER_BILINEAR;
 
 static pixman_image_t *
 make_source (void)
 {
-    size_t n_bytes = (SOURCE_WIDTH + 2) * (SOURCE_HEIGHT + 2) * 4;
+    size_t n_bytes = (source_width + 2) * (source_height + 2) * 4;
     uint32_t *data = malloc (n_bytes);
     pixman_image_t *source;
 
     prng_randmemset (data, n_bytes, 0);
     
     source = pixman_image_create_bits (
-	PIXMAN_a8r8g8b8, SOURCE_WIDTH + 2, SOURCE_HEIGHT + 2,
+	PIXMAN_a8r8g8b8, source_width + 2, source_height + 2,
 	data,
-	(SOURCE_WIDTH + 2) * 4);
+	(source_width + 2) * 4);
 
     return source;
 }
@@ -45,6 +49,8 @@ set_filter (pixman_image_t	*source,
             PIXMAN_KERNEL_BOX,
             PIXMAN_KERNEL_BOX,
             4, 4);
+	break;
+    default:
 	break;
     }
 
@@ -78,34 +84,39 @@ print_help ()
 
 static void
 parse_arguments (int			argc,
-		 char			**argv,
-		 double			*start_scale,
-		 double			*end_scale,
-		 double			*scale_step,
-		 pixman_filter_t	*filter)
+		 char			**argv)
 {
     while (*++argv) {
 	if (!strcmp (*argv, "--filter")) {
 	    ++argv;
 	    if (!strcmp (*argv, "n"))
-		*filter = PIXMAN_FILTER_NEAREST;
+		filter = PIXMAN_FILTER_NEAREST;
 	    else if (!strcmp (*argv, "b"))
-		*filter = PIXMAN_FILTER_BILINEAR;
+		filter = PIXMAN_FILTER_BILINEAR;
 	    else if (!strcmp (*argv, "s"))
-		*filter = PIXMAN_FILTER_SEPARABLE_CONVOLUTION;
+		filter = PIXMAN_FILTER_SEPARABLE_CONVOLUTION;
 	    else {
 		printf ("Unknown filter '%s'\n\n", *argv);
 		print_help ();
 	    }
 	} else if (!strcmp (*argv, "--start")) {
 	    ++argv;
-	    *start_scale = strtod (*argv, NULL);
+	    start_scale = strtod (*argv, NULL);
 	} else if (!strcmp (*argv, "--end")) {
 	    ++argv;
-	    *end_scale = strtod (*argv, NULL);
+	    end_scale = strtod (*argv, NULL);
 	} else if (!strcmp (*argv, "--step")) {
 	    ++argv;
-	    *scale_step = strtod (*argv, NULL);
+	    scale_step = strtod (*argv, NULL);
+	} else if (!strcmp (*argv, "--source-width")) {
+	    ++argv;
+	    source_width = atoi (*argv);
+	} else if (!strcmp (*argv, "--source-height")) {
+	    ++argv;
+	    source_height = atoi (*argv);
+	} else if (!strcmp (*argv, "--test-repeats")) {
+	    ++argv;
+	    test_repeats = atoi (*argv);
 	} else if (!strcmp (*argv, "-h") || !strcmp (*argv, "--help")) {
 	    print_help ();
 	} else {
@@ -119,11 +130,9 @@ int
 main (int argc, char **argv)
 {
     double scale;
-    double start_scale = 0.1, end_scale = 10.005, scale_step = 0.01;
     pixman_image_t *src;
-    pixman_filter_t filter = PIXMAN_FILTER_BILINEAR;
 
-    parse_arguments (argc, argv, &start_scale, &end_scale, &scale_step, &filter);
+    parse_arguments (argc, argv);
 
     prng_srand (23874);
     
@@ -136,8 +145,8 @@ main (int argc, char **argv)
     for (scale = start_scale; scale < end_scale; scale += scale_step)
     {
 	int i;
-	int dest_width = SOURCE_WIDTH * scale + 0.5;
-	int dest_height = SOURCE_HEIGHT * scale + 0.5;
+	int dest_width = source_width * scale + 0.5;
+	int dest_height = source_height * scale + 0.5;
 	int dest_byte_stride = (dest_width * 4 + 15) & ~15;
 	pixman_fixed_t s = (1 / scale) * 65536.0 + 0.5;
 	pixman_transform_t transform;
@@ -154,7 +163,7 @@ main (int argc, char **argv)
 	dest = pixman_image_create_bits (
 	    PIXMAN_a8r8g8b8, dest_width, dest_height, dest_buf, dest_byte_stride);
 
-	for (i = 0; i < TEST_REPEATS; i++)
+	for (i = 0; i < test_repeats; i++)
 	{
 	    t1 = gettime();
 	    pixman_image_composite (
@@ -166,7 +175,7 @@ main (int argc, char **argv)
 	}
 
 	printf ("%6.2f : %4dx%-4d => %4dx%-4d : %12.4f : %12.4f\n",
-		scale, SOURCE_WIDTH, SOURCE_HEIGHT, dest_width, dest_height,
+		scale, source_width, source_height, dest_width, dest_height,
 		t * 1000, (t / (dest_width * dest_height)) * 1000000000);
 
 	pixman_image_unref (dest);
