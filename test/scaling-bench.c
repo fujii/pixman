@@ -1,8 +1,9 @@
+#include <math.h>
 #include <stdlib.h>
 #include "utils.h"
 
-int source_width = 320;
-int source_height = 240;
+int dest_width = 320;
+int dest_height = 240;
 int test_repeats = 3;
 double start_scale = 0.1;
 double end_scale = 10.005;
@@ -13,18 +14,33 @@ pixman_op_t op = PIXMAN_OP_OVER;
 static pixman_image_t *
 make_source (void)
 {
-    size_t n_bytes = (source_width + 2) * (source_height + 2) * 4;
+    int source_width = ceil (dest_width / start_scale);
+    int source_height = ceil (dest_height / start_scale);
+    size_t n_bytes = source_width * source_height * 4;
     uint32_t *data = malloc (n_bytes);
     pixman_image_t *source;
 
     prng_randmemset (data, n_bytes, 0);
     
     source = pixman_image_create_bits (
-	PIXMAN_a8r8g8b8, source_width + 2, source_height + 2,
-	data,
-	(source_width + 2) * 4);
+		PIXMAN_a8r8g8b8, source_width, source_height,
+		data,
+		source_width * 4);
 
     return source;
+}
+
+static pixman_image_t *
+make_dest (void)
+{
+    int dest_byte_stride = (dest_width * 4 + 15) & ~15;
+    pixman_image_t *dest;
+    uint32_t *dest_buf = aligned_malloc (16, dest_byte_stride * dest_height);
+
+    dest = pixman_image_create_bits (
+        PIXMAN_a8r8g8b8, dest_width, dest_height, dest_buf, dest_byte_stride);
+
+    return dest;
 }
 
 static void
@@ -113,12 +129,12 @@ parse_arguments (int			argc,
 	} else if (!strcmp (*argv, "--step")) {
 	    ++argv;
 	    scale_step = strtod (*argv, NULL);
-	} else if (!strcmp (*argv, "--source-width")) {
+	} else if (!strcmp (*argv, "--dest-width")) {
 	    ++argv;
-	    source_width = atoi (*argv);
-	} else if (!strcmp (*argv, "--source-height")) {
+	    dest_width = atoi (*argv);
+	} else if (!strcmp (*argv, "--dest-height")) {
 	    ++argv;
-	    source_height = atoi (*argv);
+	    dest_height = atoi (*argv);
 	} else if (!strcmp (*argv, "--test-repeats")) {
 	    ++argv;
 	    test_repeats = atoi (*argv);
@@ -138,13 +154,15 @@ int
 main (int argc, char **argv)
 {
     double scale;
-    pixman_image_t *src;
+    pixman_image_t *dest, *src;
 
     parse_arguments (argc, argv);
 
     prng_srand (23874);
     
     src = make_source ();
+    dest = make_dest ();
+
     printf ("# %-6s %-22s   %-14s %-12s\n",
 	    "ratio",
 	    "resolutions",
@@ -153,30 +171,27 @@ main (int argc, char **argv)
     for (scale = start_scale; scale < end_scale; scale += scale_step)
     {
 	int i;
-	int dest_width = source_width * scale + 0.5;
-	int dest_height = source_height * scale + 0.5;
-	int dest_byte_stride = (dest_width * 4 + 15) & ~15;
+	int source_width = dest_width / scale;
+	int source_height = dest_height / scale;
 	pixman_fixed_t s = (1 / scale) * 65536.0 + 0.5;
 	pixman_transform_t transform;
-	pixman_image_t *dest;
 	double t1, t2, t = -1;
-	uint32_t *dest_buf = aligned_malloc (16, dest_byte_stride * dest_height);
-	memset (dest_buf, 0, dest_byte_stride * dest_height);
 
 	set_filter (src, scale, filter);
 
 	pixman_transform_init_scale (&transform, s, s);
 	pixman_image_set_transform (src, &transform);
-	
-	dest = pixman_image_create_bits (
-	    PIXMAN_a8r8g8b8, dest_width, dest_height, dest_buf, dest_byte_stride);
+
+	pixman_image_composite (
+	    PIXMAN_OP_CLEAR, dest, NULL, dest,
+	    0, 0, 0, 0, 0, 0, dest_width, dest_height);
 
 	for (i = 0; i < test_repeats; i++)
 	{
 	    t1 = gettime();
 	    pixman_image_composite (
 		op, src, NULL, dest,
-		scale, scale, 0, 0, 0, 0, dest_width, dest_height);
+		0, 0, 0, 0, 0, 0, dest_width, dest_height);
 	    t2 = gettime();
 	    if (t < 0 || t2 - t1 < t)
 		t = t2 - t1;
@@ -186,8 +201,6 @@ main (int argc, char **argv)
 		scale, source_width, source_height, dest_width, dest_height,
 		t * 1000, (t / (dest_width * dest_height)) * 1000000000);
 
-	pixman_image_unref (dest);
-	free (dest_buf);
     }
 
     return 0;
