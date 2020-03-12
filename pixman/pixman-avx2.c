@@ -135,17 +135,12 @@ do {										\
     pix = _mm_cvtsi128_si32 (a);						\
 } while (0)
 
-#define BILINEAR_INTERPOLATE_TWO_PIXELS(pix1, pix2)				\
+#define BILINEAR_INTERPOLATE_TWO_PIXELS()					\
 do {										\
     __m256i ymm_wh, a;								\
     /* fetch two 2x2 pixel blocks into avx2 registers */			\
-    __m256i vindex = _mm256_set_epi64x (&src_bottom[pixman_fixed_to_int (vx + unit_x)],	\
-					&src_top   [pixman_fixed_to_int (vx + unit_x)],	\
-					&src_bottom[pixman_fixed_to_int (vx)],		\
-					&src_top   [pixman_fixed_to_int (vx)]);		\
-    __m256i load =  _mm256_i64gather_epi64 (NULL, vindex, 1);			\
-    __m256i tltr =  load;							\
-    __m256i blbr =  _mm256_permute4x64_epi64 (load, _MM_SHUFFLE (3, 3, 1, 1));	\
+    __m256i tltr = _mm256_set_epi64x (0, *(int64_t*)&src_top[pixman_fixed_to_int (vx + unit_x)], 0, *(int64_t*)&src_top[pixman_fixed_to_int (vx)]); \
+    __m256i blbr = _mm256_set_epi64x (0, *(int64_t*)&src_bottom[pixman_fixed_to_int (vx + unit_x)], 0, *(int64_t*)&src_bottom[pixman_fixed_to_int (vx)]); \
     vx += 2 * unit_x;								\
     /* vertical interpolation */						\
     a = _mm256_maddubs_epi16 (_mm256_unpacklo_epi8 (blbr, tltr), ymm_wtb);	\
@@ -177,16 +172,16 @@ scaled_bilinear_scanline_avx2_8888_8888_SRC (uint32_t *       dst,
 					     pixman_bool_t    zero_src)
 {
     BILINEAR_DECLARE_YMM_VARIABLES;
-    uint32_t pix1, pix2;
 
     while ((w -= 2) >= 0)
     {
-	BILINEAR_INTERPOLATE_TWO_PIXELS (pix1, pix2);
+	BILINEAR_INTERPOLATE_TWO_PIXELS ();
 	dst += 2;
     }
 
     if (w & 1)
     {
+	uint32_t pix1;
 	BILINEAR_DECLARE_XMM_VARIABLES;
 	BILINEAR_INTERPOLATE_ONE_PIXEL (pix1);
 	*dst = pix1;
