@@ -160,7 +160,7 @@ do {										\
     a = _mm256_srli_epi32 (a, BILINEAR_INTERPOLATION_BITS * 2);			\
     a = _mm256_packs_epi32 (a, a);						\
     a = _mm256_packus_epi16 (a, a);						\
-    *(uint64_t *)dst = _mm256_extract_epi64(_mm256_permutevar8x32_epi32(a, _mm256_set_epi32(0,0,0,0,0,0,4,0)), 0); \
+    _mm_storeu_si64(dst, _mm256_castsi256_si128(a));			\
 } while (0)
 
 static force_inline void
